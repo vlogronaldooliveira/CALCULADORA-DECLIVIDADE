@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mary Noivas – Sistema</title>
+<style>
+:root{--rosa:#b0476f;--bg:#faf6f8;--card:#fff;--txt:#222;--muted:#777;--borda:#e6d9df;--ok:#2e7d32;--warn:#e08a00;--err:#c62828}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--txt)}
+header{background:var(--rosa);color:#fff;padding:12px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+header h1{margin:0;font-size:20px}
+nav button{background:transparent;border:1px solid #fff8;color:#fff;padding:8px 12px;border-radius:6px;cursor:pointer;margin:2px}
+nav button.on{background:#fff;color:var(--rosa)}
+main{max-width:1100px;margin:auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--borda);border-radius:10px;padding:16px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+label{font-size:13px;color:var(--muted);display:block}
+input,select,textarea{width:100%;padding:8px;border:1px solid var(--borda);border-radius:6px;font:inherit}
+button.p{background:var(--rosa);color:#fff;border:0;padding:9px 14px;border-radius:6px;cursor:pointer}
+button.s{background:#fff;color:var(--rosa);border:1px solid var(--rosa);padding:6px 10px;border-radius:6px;cursor:pointer}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:8px;border-bottom:1px solid var(--borda);text-align:left;vertical-align:top}
+.tag{padding:2px 8px;border-radius:10px;font-size:12px;color:#fff;white-space:nowrap}
+.kpi{font-size:28px;font-weight:700;color:var(--rosa)}
+.tw{overflow-x:auto}
+#print{display:none}
+@media print{body{background:#fff}header,main{display:none}#print{display:block;font-family:Arial,sans-serif;font-size:11.5px;color:#000;padding:0 10px}}
+#print .cab{text-align:center;color:#444}
+#print .cab b{font-size:16px}
+#print h2{text-align:center;font-size:15px;margin:14px 0}
+#print table{border:1px solid #000;margin:6px 0}
+#print td{border:1px solid #000;font-size:12px}
+#print ol{padding-left:18px;margin:4px 0}
+#print .ass{display:flex;justify-content:space-between;margin-top:40px}
+#print .ass div{width:40%;text-align:center;border-top:1px solid #000;padding-top:4px}
+</style>
+</head>
+<body>
+<header>
+  <h1>👰 Mary Noivas</h1>
+  <nav id="nav">
+    <button data-t="painel" class="on">Painel</button>
+    <button data-t="novo">Novo contrato</button>
+    <button data-t="contratos">Contratos</button>
+    <button data-t="clientes">Clientes</button>
+    <button data-t="pecas">Acervo</button>
+    <button data-t="config">Backup</button>
+  </nav>
+</header>
+<main id="app"></main>
+<div id="print"></div>
+
+<script>
+const LOJA={nome:"MARY NOIVAS",sub:"LOCAÇÃO DE VESTIDOS, NOIVA, TERNO, DEBUTANTE",end:"Quadra 23, Lote 21, Loja 02, Jardim Brasília, Águas Lindas – GO.",tel:"Telefone: (61) 99166-3001, PIX (CNPJ): 40.422.789/0001-93"};
+const MULTA_DIA=100;
+const TAXAS={"Noiva":350,"Dama":100,"Festa":100,"Pajem":100,"Terno":100,"Camiseta":30,"Debutante":100,"Outro":0};
+const CLAUSULAS=[
+"A Loja se compromete a entregar a roupa alugada limpa, passada e ajustada na data combinada.",
+"O cliente deverá vistoriar (provar) a roupa alugada a fim de verificar se está ajustada, limpa e passada na data de entrega.",
+"Após retirar a roupa da loja e feita a verificação por parte do cliente, não aceitamos quaisquer reclamações.",
+"Toda roupa deverá ser devolvida na Segunda-feira até às 12:00h. Havendo atraso na devolução, será cobrada do cliente multa de R$ 100,00 (cem reais) por dia.",
+"Havendo qualquer dano na roupa, o cliente deverá pagar o seu conserto; caso não tenha conserto, deverá pagar o valor da peça.",
+"O Cliente se compromete a vir à loja para tirar as medidas na data combinada anteriormente, com o sapato a ser usado no evento.",
+"O Cliente escolherá as cortesias dadas pela loja somente de Segunda-feira a Quarta-feira, que por sua vez não poderão ser trocadas uma vez escolhidas.",
+"O Cliente deverá retirar a roupa na loja na data agendada, na Sexta-feira da semana anterior ao evento. Após a entrega da roupa ao cliente, é de total responsabilidade do cliente restituí-la em dia, na data combinada com a vendedora.",
+"Caso o cliente queira trocar a roupa alugada (noiva, festa, dama, terno ou pajem) por outra, pagará um valor de troca a ser combinado com o(a) vendedor(a).",
+"O Cliente tem 1 dia para cancelar o contrato com a loja, e pagará multa de 50% do valor do contrato.",
+"Em caso de cancelamento, não aceitamos o valor da multa em troca de peças.",
+"Taxa de LAVAGEM será cobrada nos seguintes itens: NOIVA R$ 350,00, DAMA R$ 100,00, FESTA R$ 100,00, PAJEM R$ 100,00, TERNO R$ 100,00 e CAMISETA R$ 30,00.",
+"NÃO TRABALHAMOS AOS DOMINGOS NEM FERIADOS. Horário de funcionamento: das 09h às 17h, de segunda a sábado, exceto feriados."];
+
+// ---------- dados ----------
+const DB={get(k){try{return JSON.parse(localStorage.getItem("mn_"+k))||[]}catch(e){return[]}},set(k,v){localStorage.setItem("mn_"+k,JSON.stringify(v))}};
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const brl=v=>(+v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+const dbr=d=>d?d.split("-").reverse().join("/"):"—";
+const hoje=()=>new Date().toISOString().slice(0,10);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const diasEntre=(a,b)=>Math.round((new Date(b)-new Date(a))/864e5);
+function addDias(d,n){const x=new Date(d+"T12:00");x.setDate(x.getDate()+n);return x.toISOString().slice(0,10)}
+// sexta anterior e segunda seguinte ao evento
+function sugerirDatas(ev){const d=new Date(ev+"T12:00"),w=d.getDay();const sex=addDias(ev,-(((w-5)+7)%7||7));const seg=addDias(ev,((1-w)+7)%7||7);return{sex,seg}}
+
+function totais(c){const total=c.itens.reduce((s,i)=>s+(+i.valor||0),0);const pago=(c.pagamentos||[]).reduce((s,p)=>s+(+p.valor||0),0);return{total,pago,resta:total-pago}}
+function status(c){
+  if(c.status==="cancelado")return["Cancelado","#888"];
+  if(c.status==="devolvido")return["Devolvido","var(--ok)"];
+  const h=hoje();
+  if(c.status==="retirado"){return c.devolucao&&h>c.devolucao?["Devolução atrasada","var(--err)"]:["Com o cliente","var(--warn)"]}
+  return ["Reservado","var(--rosa)"];
+}
+function multaAtraso(c){if(c.status!=="retirado"||!c.devolucao)return 0;const d=diasEntre(c.devolucao,hoje());return d>0?d*MULTA_DIA:0}
+
+// ---------- navegação ----------
+let aba="painel",editId=null;
+document.getElementById("nav").onclick=e=>{if(e.target.dataset.t){editId=null;ir(e.target.dataset.t)}};
+function ir(t){aba=t;document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));render()}
+const app=document.getElementById("app");
+function render(){({painel,novo:form,contratos:listaContratos,clientes,pecas,config})[aba]()}
+
+// ---------- painel ----------
+function painel(){
+  const cs=DB.get("contratos"),h=hoje(),sem=addDias(h,7);
+  const ativos=cs.filter(c=>c.status!=="cancelado"&&c.status!=="devolvido");
+  const atras=ativos.filter(c=>c.status==="retirado"&&c.devolucao&&h>c.devolucao);
+  const mes=h.slice(0,7);
+  const fat=cs.filter(c=>c.status!=="cancelado"&&(c.criado||"").slice(0,7)===mes).reduce((s,c)=>s+totais(c).total,0);
+  const receber=ativos.reduce((s,c)=>s+Math.max(0,totais(c).resta),0);
+  const agenda=[];
+  ativos.forEach(c=>{[["medidas","Medidas"],["prova","Prova"],["entrega","Retirada"],["evento","Evento"],["devolucao","Devolução"]].forEach(([k,n])=>{if(c[k]&&c[k]>=h&&c[k]<=sem)agenda.push({d:c[k],n,c})})});
+  agenda.sort((a,b)=>a.d.localeCompare(b.d));
+  app.innerHTML=`
+  <div class="grid">
+    <div class="card"><label>Contratos ativos</label><div class="kpi">${ativos.length}</div></div>
+    <div class="card"><label>Devoluções atrasadas</label><div class="kpi" style="color:var(--err)">${atras.length}</div></div>
+    <div class="card"><label>Contratado neste mês</label><div class="kpi">${brl(fat)}</div></div>
+    <div class="card"><label>A receber</label><div class="kpi">${brl(receber)}</div></div>
+  </div>
+  ${atras.length?`<div class="card" style="border-color:var(--err)"><b style="color:var(--err)">⚠ Devoluções atrasadas</b><table>${atras.map(c=>`<tr><td>#${c.num} ${esc(c.cliente.nome)}</td><td>${esc(c.cliente.telefone)}</td><td>Devolver em ${dbr(c.devolucao)}</td><td>Multa: <b>${brl(multaAtraso(c))}</b></td><td><button class="s" onclick="abrir('${c.id}')">Abrir</button></td></tr>`).join("")}</table></div>`:""}
+  <div class="card"><b>Agenda dos próximos 7 dias</b>
+  ${agenda.length?`<div class="tw"><table><tr><th>Data</th><th>O quê</th><th>Cliente</th><th>Telefone</th><th></th></tr>${agenda.map(a=>`<tr><td>${dbr(a.d)}</td><td>${a.n}</td><td>#${a.c.num} ${esc(a.c.cliente.nome)}</td><td>${esc(a.c.cliente.telefone)}</td><td><button class="s" onclick="abrir('${a.c.id}')">Abrir</button></td></tr>`).join("")}</table></div>`:"<p style='color:var(--muted)'>Nada agendado.</p>"}
+  </div>`;
+}
+
+// ---------- formulário de contrato ----------
+function form(){
+  const c=editId?DB.get("contratos").find(x=>x.id===editId):{cliente:{},itens:[{tipo:"Noiva",descricao:"",valor:""}],pagamentos:[]};
+  const pecasAcervo=DB.get("pecas");
+  const cli=c.cliente;
+  app.innerHTML=`
+  <div class="card"><h3 style="margin-top:0">${editId?"Editar contrato #"+c.num:"Novo contrato"}</h3>
+  <b>Cliente</b>
+  <div class="grid" style="margin:8px 0 14px">
+    <div><label>Nome</label><input id="nome" list="dlcli" value="${esc(cli.nome)}"></div>
+    <div><label>CPF</label><input id="cpf" value="${esc(cli.cpf)}"></div>
+    <div><label>Telefone</label><input id="telefone" value="${esc(cli.telefone||"(61) ")}"></div>
+    <div style="grid-column:1/-1"><label>Endereço</label><input id="endereco" value="${esc(cli.endereco)}"></div>
+  </div>
+  <datalist id="dlcli">${DB.get("clientes").map(x=>`<option value="${esc(x.nome)}">`).join("")}</datalist>
+  <datalist id="dlpecas">${pecasAcervo.map(p=>`<option value="${esc(p.codigo+" - "+p.descricao)}">`).join("")}</datalist>
+  <b>Locação</b>
+  <div class="tw"><table id="itens"><tr><th>Tipo</th><th>Descrição / peça</th><th>Valor (R$)</th><th></th></tr></table></div>
+  <button class="s" onclick="addItem()">+ Item</button>
+  <div style="text-align:right;font-size:18px">Total: <b id="tot"></b></div>
+  <b>Datas</b>
+  <div class="grid" style="margin:8px 0 14px">
+    <div><label>Data do evento</label><input type="date" id="evento" value="${c.evento||""}" onchange="autoDatas()"></div>
+    <div><label>Data das medidas</label><input type="date" id="medidas" value="${c.medidas||""}"></div>
+    <div><label>Data da prova</label><input type="date" id="prova" value="${c.prova||""}"></div>
+    <div><label>Data da entrega (retirada)</label><input type="date" id="entrega" value="${c.entrega||""}"></div>
+    <div><label>Data de devolução</label><input type="date" id="devolucao" value="${c.devolucao||""}"></div>
+  </div>
+  <b>Pagamento</b>
+  <div class="tw"><table id="pags"><tr><th>Data</th><th>Forma</th><th>Valor (R$)</th><th></th></tr></table></div>
+  <button class="s" onclick="addPag()">+ Pagamento / sinal</button>
+  <div style="margin-top:10px"><label>Observações</label><textarea id="obs" rows="2">${esc(c.obs||"")}</textarea></div>
+  <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><button class="p" onclick="salvar()">Salvar</button><button class="p" onclick="salvar(true)">Salvar e imprimir</button></div>
+  </div>`;
+  window._it=c.itens.map(x=>({...x}));window._pg=(c.pagamentos||[]).map(x=>({...x}));
+  document.getElementById("nome").onchange=e=>{const x=DB.get("clientes").find(k=>k.nome===e.target.value);if(x)["cpf","telefone","endereco"].forEach(f=>document.getElementById(f).value=x[f]||"")};
+  desenhaItens();desenhaPags();
+}
+function desenhaItens(){
+  const t=document.getElementById("itens");
+  t.innerHTML=`<tr><th>Tipo</th><th>Descrição / peça</th><th>Valor (R$)</th><th></th></tr>`+_it.map((i,n)=>`<tr>
+  <td><select onchange="_it[${n}].tipo=this.value">${Object.keys(TAXAS).map(k=>`<option ${k===i.tipo?"selected":""}>${k}</option>`).join("")}</select></td>
+  <td><input list="dlpecas" value="${esc(i.descricao)}" oninput="_it[${n}].descricao=this.value"></td>
+  <td><input type="number" step="0.01" value="${i.valor}" oninput="_it[${n}].valor=this.value;tot()"></td>
+  <td><button class="s" onclick="_it.splice(${n},1);desenhaItens()">✕</button></td></tr>`).join("");tot();
+}
+function tot(){document.getElementById("tot").textContent=brl(_it.reduce((s,i)=>s+(+i.valor||0),0))}
+function addItem(){_it.push({tipo:"Festa",descricao:"",valor:""});desenhaItens()}
+function desenhaPags(){
+  document.getElementById("pags").innerHTML=`<tr><th>Data</th><th>Forma</th><th>Valor (R$)</th><th></th></tr>`+_pg.map((p,n)=>`<tr>
+  <td><input type="date" value="${p.data}" onchange="_pg[${n}].data=this.value"></td>
+  <td><select onchange="_pg[${n}].forma=this.value">${["PIX","Dinheiro","Cartão de débito","Cartão de crédito"].map(k=>`<option ${k===p.forma?"selected":""}>${k}</option>`).join("")}</select></td>
+  <td><input type="number" step="0.01" value="${p.valor}" oninput="_pg[${n}].valor=this.value"></td>
+  <td><button class="s" onclick="_pg.splice(${n},1);desenhaPags()">✕</button></td></tr>`).join("");
+}
+function addPag(){_pg.push({data:hoje(),forma:"PIX",valor:""});desenhaPags()}
+function autoDatas(){const ev=document.getElementById("evento").value;if(!ev)return;const{sex,seg}=sugerirDatas(ev);const e=document.getElementById("entrega"),d=document.getElementById("devolucao");if(!e.value)e.value=sex;if(!d.value)d.value=seg}
+function salvar(imp){
+  const v=id=>document.getElementById(id).value.trim();
+  if(!v("nome"))return alert("Informe o nome do cliente.");
+  const cliente={nome:v("nome"),cpf:v("cpf"),telefone:v("telefone"),endereco:v("endereco")};
+  // cadastro de cliente
+  const cls=DB.get("clientes");const ix=cls.findIndex(k=>(cliente.cpf&&k.cpf===cliente.cpf)||k.nome===cliente.nome);
+  if(ix>=0)cls[ix]={...cls[ix],...cliente};else cls.push({id:uid(),...cliente});DB.set("clientes",cls);
+  const cs=DB.get("contratos");
+  let c=editId?cs.find(x=>x.id===editId):{id:uid(),num:(cs.reduce((m,x)=>Math.max(m,x.num),0)+1),criado:hoje(),status:"reservado"};
+  Object.assign(c,{cliente,itens:_it.filter(i=>i.descricao||i.valor),pagamentos:_pg.filter(p=>+p.valor),obs:v("obs"),evento:v("evento"),medidas:v("medidas"),prova:v("prova"),entrega:v("entrega"),devolucao:v("devolucao")});
+  if(!editId)cs.push(c);DB.set("contratos",cs);
+  if(imp)imprimir(c.id);editId=null;abrir(c.id);
+}
+
+// ---------- lista / detalhe ----------
+function listaContratos(){
+  app.innerHTML=`<div class="card"><input id="busca" placeholder="Buscar por nome, CPF, telefone ou nº…"><div class="tw" id="lst"></div></div>`;
+  const f=()=>{const q=document.getElementById("busca").value.toLowerCase();
+    const cs=DB.get("contratos").filter(c=>(c.num+" "+c.cliente.nome+" "+c.cliente.cpf+" "+c.cliente.telefone).toLowerCase().includes(q)).sort((a,b)=>b.num-a.num);
+    document.getElementById("lst").innerHTML=`<table><tr><th>Nº</th><th>Cliente</th><th>Evento</th><th>Total</th><th>Resta</th><th>Status</th><th></th></tr>${cs.map(c=>{const t=totais(c),[s,cor]=status(c);return`<tr><td>${c.num}</td><td>${esc(c.cliente.nome)}</td><td>${dbr(c.evento)}</td><td>${brl(t.total)}</td><td>${brl(t.resta)}</td><td><span class="tag" style="background:${cor}">${s}</span></td><td><button class="s" onclick="abrir('${c.id}')">Abrir</button></td></tr>`}).join("")}</table>`};
+  document.getElementById("busca").oninput=f;f();
+}
+function abrir(id){
+  aba="contratos";document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t==="contratos"));
+  const c=DB.get("contratos").find(x=>x.id===id);const t=totais(c),[s,cor]=status(c),m=multaAtraso(c);
+  const lav=c.itens.reduce((x,i)=>x+(TAXAS[i.tipo]||0),0);
+  app.innerHTML=`<div class="card">
+  <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><h3 style="margin:0">Contrato #${c.num} <span class="tag" style="background:${cor}">${s}</span></h3>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+   <button class="s" onclick="imprimir('${c.id}')">🖨 Imprimir</button>
+   <button class="s" onclick="editId='${c.id}';aba='novo';form()">✏ Editar</button>
+   ${c.status==="reservado"?`<button class="p" onclick="mudar('${c.id}','retirado')">Marcar retirado</button>`:""}
+   ${c.status==="retirado"?`<button class="p" onclick="mudar('${c.id}','devolvido')">Marcar devolvido</button>`:""}
+   ${c.status==="reservado"?`<button class="s" onclick="cancelar('${c.id}')">Cancelar</button>`:""}
+   <button class="s" onclick="excluir('${c.id}')">Excluir</button>
+  </div></div>
+  <p><b>${esc(c.cliente.nome)}</b> · CPF ${esc(c.cliente.cpf)||"—"} · ${esc(c.cliente.telefone)}<br>${esc(c.cliente.endereco)}</p>
+  <table><tr><th>Tipo</th><th>Peça</th><th>Valor</th></tr>${c.itens.map(i=>`<tr><td>${i.tipo}</td><td>${esc(i.descricao)}</td><td>${brl(i.valor)}</td></tr>`).join("")}</table>
+  <p>Total <b>${brl(t.total)}</b> · Pago <b>${brl(t.pago)}</b> · Resta <b style="color:${t.resta>0?"var(--err)":"var(--ok)"}">${brl(t.resta)}</b></p>
+  <p style="font-size:14px">Evento ${dbr(c.evento)} · Medidas ${dbr(c.medidas)} · Prova ${dbr(c.prova)} · Retirada ${dbr(c.entrega)} · Devolução ${dbr(c.devolucao)}</p>
+  ${m?`<p style="color:var(--err)"><b>Multa por atraso: ${brl(m)}</b> (${m/MULTA_DIA} dia(s) × ${brl(MULTA_DIA)})</p>`:""}
+  ${c.multaCancel?`<p style="color:var(--err)">Multa de cancelamento (50%): <b>${brl(c.multaCancel)}</b></p>`:""}
+  <p style="font-size:13px;color:var(--muted)">Taxa de lavagem de referência (cláusula 12): ${brl(lav)}</p>
+  ${c.obs?`<p>Obs.: ${esc(c.obs)}</p>`:""}
+  <p><a href="https://wa.me/55${(c.cliente.telefone||"").replace(/\D/g,"")}?text=${encodeURIComponent(`Olá ${c.cliente.nome}! Aqui é da Mary Noivas. Lembrete do seu contrato nº ${c.num}: retirada ${dbr(c.entrega)}, devolução ${dbr(c.devolucao)} até 12h.`)}" target="_blank">💬 Enviar lembrete pelo WhatsApp</a></p>
+  </div>`;
+}
+function mudar(id,s){const cs=DB.get("contratos"),c=cs.find(x=>x.id===id);c.status=s;c["data_"+s]=hoje();DB.set("contratos",cs);abrir(id)}
+function cancelar(id){const cs=DB.get("contratos"),c=cs.find(x=>x.id===id);const m=totais(c).total*.5;if(!confirm(`Cancelar contrato? Multa de 50%: ${brl(m)}`))return;c.status="cancelado";c.multaCancel=m;DB.set("contratos",cs);abrir(id)}
+function excluir(id){if(!confirm("Excluir definitivamente este contrato?"))return;DB.set("contratos",DB.get("contratos").filter(x=>x.id!==id));ir("contratos")}
+
+// ---------- impressão ----------
+function imprimir(id){
+  const c=DB.get("contratos").find(x=>x.id===id),t=totais(c);
+  document.getElementById("print").innerHTML=`
+  <div class="cab"><b>${LOJA.nome}</b><br>${LOJA.sub}<br>${LOJA.end}<br>${LOJA.tel}</div>
+  <h2>CONTRATO DE LOCAÇÃO DE VESTUÁRIO Nº ${c.num}</h2>
+  <p><b>NOME:</b> ${esc(c.cliente.nome)} &nbsp; <b>CPF:</b> ${esc(c.cliente.cpf)}<br><b>ENDEREÇO:</b> ${esc(c.cliente.endereco)} &nbsp; <b>TELEFONE:</b> ${esc(c.cliente.telefone)}</p>
+  <table><tr><td><b>LOCAÇÃO</b></td><td style="width:25%"><b>VALOR R$</b></td></tr>${c.itens.map(i=>`<tr><td>${i.tipo} – ${esc(i.descricao)}</td><td>${brl(i.valor)}</td></tr>`).join("")}<tr><td style="text-align:right"><b>TOTAL</b></td><td><b>${brl(t.total)}</b></td></tr></table>
+  <table><tr><td><b>DATA DO EVENTO:</b> ${dbr(c.evento)}</td><td><b>DATA DAS MEDIDAS:</b> ${dbr(c.medidas)}</td><td><b>DATA DA PROVA:</b> ${dbr(c.prova)}</td></tr>
+  <tr><td colspan="2"><b>DATA DA ENTREGA:</b> ${dbr(c.entrega)}</td><td><b>DATA DE DEVOLUÇÃO:</b> ${dbr(c.devolucao)}</td></tr></table>
+  <p><i><b>Obs.: trazer o sapato no dia da medida.</b></i>${c.obs?" "+esc(c.obs):""}</p>
+  <b>CLÁUSULAS DESTE CONTRATO</b><ol>${CLAUSULAS.map(x=>`<li>${x}</li>`).join("")}</ol>
+  <p><b>FORMA DE PAGAMENTO:</b> ${(c.pagamentos||[]).map(p=>`${p.forma} ${brl(p.valor)} (${dbr(p.data)})`).join("; ")||"—"} &nbsp; | Pago: ${brl(t.pago)} | Restante: ${brl(t.resta)}</p>
+  <div class="ass"><div>LOCATÁRIO</div><div>FUNCIONÁRIO</div></div>
+  <p style="text-align:center;margin-top:24px">ÁGUAS LINDAS - GO, ${new Date().toLocaleDateString("pt-BR",{day:"numeric",month:"long",year:"numeric"})}</p>`;
+  setTimeout(()=>window.print(),100);
+}
+
+// ---------- clientes ----------
+function clientes(){
+  const cs=DB.get("contratos");
+  app.innerHTML=`<div class="card"><div class="tw"><table><tr><th>Nome</th><th>CPF</th><th>Telefone</th><th>Endereço</th><th>Contratos</th></tr>${DB.get("clientes").sort((a,b)=>a.nome.localeCompare(b.nome)).map(k=>`<tr><td>${esc(k.nome)}</td><td>${esc(k.cpf)}</td><td>${esc(k.telefone)}</td><td>${esc(k.endereco)}</td><td>${cs.filter(c=>c.cliente.nome===k.nome).map(c=>`<a href="#" onclick="abrir('${c.id}');return false">#${c.num}</a>`).join(" ")}</td></tr>`).join("")}</table></div></div>`;
+}
+
+// ---------- acervo ----------
+function pecas(){
+  const ps=DB.get("pecas"),cs=DB.get("contratos").filter(c=>c.status==="reservado"||c.status==="retirado");
+  const uso=p=>cs.filter(c=>c.itens.some(i=>(i.descricao||"").startsWith(p.codigo+" ")));
+  app.innerHTML=`<div class="card"><b>Cadastrar peça</b><div class="grid" style="margin-top:8px">
+  <div><label>Código</label><input id="pc"></div><div><label>Tipo</label><select id="pt">${Object.keys(TAXAS).map(k=>`<option>${k}</option>`).join("")}</select></div>
+  <div><label>Descrição (cor, tamanho…)</label><input id="pd"></div><div><label>Valor de locação</label><input id="pv" type="number"></div></div>
+  <button class="p" style="margin-top:8px" onclick="addPeca()">Adicionar</button></div>
+  <div class="card tw"><table><tr><th>Código</th><th>Tipo</th><th>Descrição</th><th>Valor</th><th>Reservas</th><th></th></tr>${ps.map(p=>`<tr><td>${esc(p.codigo)}</td><td>${p.tipo}</td><td>${esc(p.descricao)}</td><td>${brl(p.valor)}</td><td>${uso(p).map(c=>`#${c.num} (${dbr(c.evento)})`).join(", ")||"Livre"}</td><td><button class="s" onclick="delPeca('${p.id}')">✕</button></td></tr>`).join("")}</table>
+  <p style="font-size:13px;color:var(--muted)">Dica: no contrato, escolha a peça pela lista (código - descrição) para ver as reservas aqui e evitar alugar a mesma peça duas vezes na mesma data.</p></div>`;
+}
+function addPeca(){const v=id=>document.getElementById(id).value.trim();if(!v("pc"))return alert("Informe o código");const ps=DB.get("pecas");ps.push({id:uid(),codigo:v("pc"),tipo:v("pt"),descricao:v("pd"),valor:v("pv")});DB.set("pecas",ps);pecas()}
+function delPeca(id){if(confirm("Remover peça?")){DB.set("pecas",DB.get("pecas").filter(p=>p.id!==id));pecas()}}
+
+// ---------- backup ----------
+function config(){
+  app.innerHTML=`<div class="card"><b>Backup dos dados</b><p style="color:var(--muted)">Os dados ficam salvos neste computador/navegador. Faça backup com frequência.</p>
+  <button class="p" onclick="exportar()">⬇ Baixar backup</button> <label style="display:inline-block;margin-left:10px">Restaurar: <input type="file" accept=".json" onchange="importar(this.files[0])"></label></div>`;
+}
+function exportar(){const d={clientes:DB.get("clientes"),contratos:DB.get("contratos"),pecas:DB.get("pecas")};const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(d)],{type:"application/json"}));a.download="mary-noivas-backup-"+hoje()+".json";a.click()}
+function importar(f){if(!f||!confirm("Substituir os dados atuais pelo backup?"))return;f.text().then(t=>{const d=JSON.parse(t);["clientes","contratos","pecas"].forEach(k=>DB.set(k,d[k]||[]));alert("Backup restaurado!");ir("painel")})}
+
+render();
+</script>
+</body>
+</html>
